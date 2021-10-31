@@ -3,22 +3,22 @@ package http
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 
+	"github.com/arpsch/go-webhook_rxr/imemc"
 	"github.com/arpsch/go-webhook_rxr/model"
 	"github.com/arpsch/go-webhook_rxr/receiver"
 	"github.com/pkg/errors"
 )
 
 type receiverHandlers struct {
-	rxr receiver.WebhookReceiver
+	cache *imemc.Cache
 }
 
 // NewReceiverHandlers constructor for Receiver
-func NewReceiverHandlers(rxr receiver.WebhookReceiver) *receiverHandlers {
+func NewReceiverHandlers(rxr receiver.WebhookReceiver, cache *imemc.Cache) *receiverHandlers {
 	return &receiverHandlers{
-		rxr: rxr,
+		cache: cache,
 	}
 }
 
@@ -60,7 +60,12 @@ func (rh *receiverHandlers) HookHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	fmt.Printf("%+v\n", l)
+	//fmt.Printf("%+v\n", l)
+
+	if err := rh.cache.Write(ctx, l); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	w.WriteHeader(http.StatusAccepted)
 }

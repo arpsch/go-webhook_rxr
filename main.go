@@ -7,6 +7,7 @@ import (
 	"github.com/julienschmidt/httprouter"
 
 	api_http "github.com/arpsch/go-webhook_rxr/api/http"
+	"github.com/arpsch/go-webhook_rxr/imemc"
 	"github.com/arpsch/go-webhook_rxr/receiver"
 )
 
@@ -19,8 +20,14 @@ func setupServer() (*httprouter.Router, error) {
 	// set up receiver instance
 	whRxr := receiver.NewReceiver()
 
+	// construct inmemory cache
+	imc := imemc.NewLogCache()
+
+	// set up the go routine to handle cacche evictions
+	go imemc.HandleWebhookEvents(imc)
+
 	// set up api handlers for image collector
-	whHandler := api_http.NewReceiverHandlers(whRxr)
+	whHandler := api_http.NewReceiverHandlers(whRxr, imc)
 	routes := whHandler.SetupRoutes()
 
 	return routes, nil
