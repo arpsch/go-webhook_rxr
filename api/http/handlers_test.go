@@ -1,17 +1,16 @@
 package http
 
 import (
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 )
 
-func TestIndexHandler(t *testing.T) {
+func TestHealthzHandler(t *testing.T) {
 
 	req, err := http.NewRequest(
 		http.MethodGet,
-		"http://localhost:8080/",
+		"http://localhost:9999/",
 		nil,
 	)
 
@@ -19,20 +18,11 @@ func TestIndexHandler(t *testing.T) {
 		t.Fatalf("Could not create a request %v", err)
 	}
 
-	apph := appHandlers{}
+	rh := receiverHandlers{}
 	rec := httptest.NewRecorder()
-	apph.IndexHandler(rec, req)
+	rh.HealthzHandler(rec, req)
 
 	if rec.Code != http.StatusOK {
-		t.Errorf("accepted status 200, got %v", rec.Code)
+		t.Errorf("accepted status 200, received status %v", rec.Code)
 	}
-
-	fmt.Printf("### %v ######\n", rec.Result().Cookies())
-	fmt.Printf("### %v ######\n", rec.Body)
-	/*
-	   if !strings.Contains(rec.Body.String(), "hello world") {
-	       t.Errorf("unexpected body in response %q", rec.Body.String())
-	   }
-	*/
-
 }
