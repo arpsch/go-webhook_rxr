@@ -7,8 +7,8 @@ import (
 	"github.com/julienschmidt/httprouter"
 
 	api_http "github.com/arpsch/go-webhook_rxr/api/http"
+	"github.com/arpsch/go-webhook_rxr/client"
 	"github.com/arpsch/go-webhook_rxr/imemc"
-	"github.com/arpsch/go-webhook_rxr/receiver"
 )
 
 var (
@@ -17,17 +17,19 @@ var (
 
 func setupServer() (*httprouter.Router, error) {
 
-	// set up receiver instance
-	whRxr := receiver.NewReceiver()
-
 	// construct inmemory cache
 	imc := imemc.NewLogCache()
 
-	// set up the go routine to handle cacche evictions
-	go imemc.HandleWebhookEvents(imc)
+	// create client object
+	client := client.NewClient()
 
-	// set up api handlers for image collector
-	whHandler := api_http.NewReceiverHandlers(whRxr, imc)
+	// set up api handlers for webhook receiver
+	whHandler := api_http.NewReceiverHandlers(imc, client)
+
+	// set up the go routine to handle cacche evictions
+	go api_http.HandleWebhookEvents(whHandler)
+
+	// set up the routes
 	routes := whHandler.SetupRoutes()
 
 	return routes, nil

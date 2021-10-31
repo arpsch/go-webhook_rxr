@@ -3,22 +3,37 @@ package http
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"net/http"
+	"time"
 
+	"github.com/arpsch/go-webhook_rxr/client"
 	"github.com/arpsch/go-webhook_rxr/imemc"
 	"github.com/arpsch/go-webhook_rxr/model"
-	"github.com/arpsch/go-webhook_rxr/receiver"
 	"github.com/pkg/errors"
 )
 
+// TODO: Read from environment variable
+const (
+	BATCHSIZE     = 3 // number of items in cache
+	BATCHINTERVAL = 30 * time.Second
+)
+
 type receiverHandlers struct {
-	cache *imemc.Cache
+	cache  *imemc.Cache
+	client *client.Client
+
+	// signal for go routine
+	BatchSizeChan chan struct{}
 }
 
 // NewReceiverHandlers constructor for Receiver
-func NewReceiverHandlers(rxr receiver.WebhookReceiver, cache *imemc.Cache) *receiverHandlers {
+func NewReceiverHandlers(cache *imemc.Cache, client *client.Client) *receiverHandlers {
 	return &receiverHandlers{
-		cache: cache,
+		cache:  cache,
+		client: client,
+
+		BatchSizeChan: make(chan struct{}),
 	}
 }
 
@@ -60,12 +75,46 @@ func (rh *receiverHandlers) HookHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	//fmt.Printf("%+v\n", l)
-
-	if err := rh.cache.Write(ctx, l); err != nil {
+	log.Printf("cache write at %v \n", time.Now())
+	batchSize, err := rh.cache.Write(ctx, l)
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
+	if batchSize >= BATCHSIZE {
+		rh.BatchSizeChan <- struct{}{}
+	}
+
 	w.WriteHeader(http.StatusAccepted)
+}
+
+// HandleWebhookEvents handle the webhooks based on requirents
+func HandleWebhookEvents(rh *receiverHandlers) {
+	for {
+		t := time.NewTimer(BATCHINTERVAL)
+		select {
+		case <-rh.BatchSizeChan:
+			log.Printf("cache batch size threshold crossed")
+			logs, err := rh.cache.Evict()
+			if err == nil {
+				if err := client.RetryTimeout(logs, rh.client.HandleHook); err != nil {
+					log.Printf("failed to release events to upstream server: %v", err)
+				}
+			}
+		case <-t.C:
+			log.Printf("cache batch interval crossed")
+			logs, err := rh.cache.Evict()
+			if err == nil {
+				log.Printf("current batch size: %d", len(logs))
+				// if empty cache do nothing
+				if len(logs) <= 0 {
+					continue
+				}
+				if err := client.RetryTimeout(logs, rh.client.HandleHook); err != nil {
+					log.Printf("failed to release events to upstream server: %v", err)
+				}
+			}
+		}
+	}
 }
