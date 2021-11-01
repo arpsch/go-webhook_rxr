@@ -1,14 +1,15 @@
 package main
 
 import (
-	"log"
 	"net/http"
+	"time"
 
 	"github.com/julienschmidt/httprouter"
 
 	api_http "github.com/arpsch/go-webhook_rxr/api/http"
 	"github.com/arpsch/go-webhook_rxr/client"
 	"github.com/arpsch/go-webhook_rxr/imemc"
+	log "github.com/arpsch/go-webhook_rxr/logger"
 )
 
 var (
@@ -36,12 +37,24 @@ func setupServer() (*httprouter.Router, error) {
 }
 
 func main() {
+	l := log.Logger{}
+
 	router, err := setupServer()
 	if err != nil {
-		log.Printf(" failed to set up routes, exiting")
+		l.Log(log.PANIC, "failed to set up routes, exiting")
 		return
 	}
 
-	log.Printf("Server is listening on %s", port)
-	log.Fatal(http.ListenAndServe(port, router))
+	srv := &http.Server{
+		Addr:    port,
+		Handler: router,
+
+		// Add Idle, Read and Write timeouts to the server.
+		IdleTimeout:  time.Minute,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
+	}
+
+	l.Log(log.INFO, "server is listening on %s", port)
+	l.Log(log.PANIC, srv.ListenAndServe().Error())
 }

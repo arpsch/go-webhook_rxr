@@ -8,8 +8,8 @@ import (
 // SetupRoutes sets up routes for the WH reveiver
 func (rh *receiverHandlers) SetupRoutes() *httprouter.Router {
 	router := httprouter.New()
-	router.HandlerFunc("GET", "/healthz", logger.Log(rh.HealthzHandler))
-	router.HandlerFunc("POST", "/log", logger.Log(rh.HookHandler))
+	router.HandlerFunc("GET", "/healthz", logger.LogRequest(rh.HealthzHandler))
+	router.HandlerFunc("POST", "/log", logger.LogRequest(rh.HookHandler))
 
 	return router
 }

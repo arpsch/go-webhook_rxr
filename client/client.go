@@ -5,10 +5,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"log"
 	"net/http"
 	"time"
 
+	log "github.com/arpsch/go-webhook_rxr/logger"
 	"github.com/arpsch/go-webhook_rxr/model"
 )
 
@@ -50,25 +50,28 @@ func RetryTimeout(logs []model.Log,
 	check func(context.Context, []model.Log) error) error {
 	//set up context for upstream request
 	ctx := context.Background()
+	l := log.Logger{}
 
 	for i := 0; i < RetryCount; i++ {
 		if err := check(ctx, logs); err == nil {
-			log.Printf("finished successfully in attempt: %d\n", i)
-			return err
+			l.Log(log.INFO, "finished successfully in attempt: %d\n", i)
+			return nil
 		}
+
 		if ctx.Err() != nil {
-			log.Printf("time expired 1 : %v\n", ctx.Err())
+			l.Log(log.ERROR, "time expired 1 : %v\n", ctx.Err())
 			return errors.New(ctx.Err().Error())
 		}
-		log.Printf("wait %s before trying again\n", RetryInterval)
+
+		l.Log(log.WARN, "wait %s before trying again\n", RetryInterval)
 		t := time.NewTimer(RetryInterval)
 		select {
 		case <-ctx.Done():
-			log.Printf("time expired 2 : %v\n", ctx.Err())
+			l.Log(log.WARN, "time expired 2 : %v\n", ctx.Err())
 			t.Stop()
 			return errors.New("time expired")
 		case <-t.C:
-			log.Printf("retry again -  count %d\n", i)
+			l.Log(log.WARN, "retry again -  count %d\n", i)
 		}
 	}
 	return nil
