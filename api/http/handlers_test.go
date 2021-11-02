@@ -1,6 +1,8 @@
 package http
 
 import (
+	"io/ioutil"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -24,5 +26,15 @@ func TestHealthzHandler(t *testing.T) {
 
 	if rec.Code != http.StatusOK {
 		t.Errorf("accepted status 200, received status %v", rec.Code)
+	}
+
+	body, err := ioutil.ReadAll(rec.Body)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if string(body) != "OK" {
+		t.Errorf("accepted response OK, received status %s", body)
 	}
 }
