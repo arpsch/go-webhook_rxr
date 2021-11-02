@@ -27,7 +27,7 @@ type Client struct {
 }
 
 func init() {
-	endpoint = os.Getenv("endpoint")
+	endpoint = os.Getenv("ENDPOINT")
 	// set default value is not set through ENV
 	if endpoint == "" {
 		endpoint = "http://127.0.0.1:9999/logs"
