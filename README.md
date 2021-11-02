@@ -9,3 +9,5 @@ ENDPOINT in string targeting the upstream server, defaults to internal test endp
 How to run:
 
  docker run -e BATCH_SIZE='5' -e BATCH_INTERVAL='40' ENDPOINT='http://127.0.0.1/logs' -p 9999:9999  <docker_image>:<tag>
+
+ ![image](https://user-images.githubusercontent.com/52441671/139911636-4c7544da-7689-4292-9bc9-c4344aebb82c.png)
