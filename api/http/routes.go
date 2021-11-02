@@ -11,5 +11,8 @@ func (rh *receiverHandlers) SetupRoutes() *httprouter.Router {
 	router.HandlerFunc("GET", "/healthz", logger.LogRequest(rh.HealthzHandler))
 	router.HandlerFunc("POST", "/log", logger.LogRequest(rh.HookHandler))
 
+	// Test purpose
+	router.HandlerFunc("POST", "/logs", logger.LogRequest(rh.HooksHandler))
+
 	return router
 }

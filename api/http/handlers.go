@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"os"
+	"strconv"
 	"time"
 
 	"github.com/arpsch/go-webhook_rxr/client"
@@ -13,11 +15,30 @@ import (
 	"github.com/pkg/errors"
 )
 
-// TODO: Read from environment variable
 const (
-	BATCHSIZE     = 3 // number of items in cache
-	BATCHINTERVAL = 30 * time.Second
+	DEF_BATCH_SIZE     = 3
+	DEF_BATCH_INTERVAL = 30 * time.Second
 )
+
+var (
+	BatchSize     int
+	BatchInterval time.Duration
+)
+
+func init() {
+	var err error
+	BatchSize, err = strconv.Atoi(os.Getenv("BATCH_SIZE"))
+	if err != nil || BatchSize == 0 {
+		BatchSize = DEF_BATCH_SIZE
+	}
+
+	bi, err := strconv.Atoi(os.Getenv("BATCH_INTERVAL"))
+	if err != nil || bi == 0 {
+		BatchInterval = DEF_BATCH_INTERVAL
+	} else {
+		BatchInterval = time.Duration(bi) * time.Second
+	}
+}
 
 type receiverHandlers struct {
 	cache  *imemc.Cache
@@ -77,13 +98,13 @@ func (rh *receiverHandlers) HookHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	l.Log(log.INFO, "cache write at %v \n", time.Now())
-	batchSize, err := rh.cache.Write(ctx, lg)
+	bs, err := rh.cache.Write(ctx, lg)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	if batchSize >= BATCHSIZE {
+	if bs >= BatchSize {
 		rh.BatchSizeChan <- struct{}{}
 	}
 
@@ -95,7 +116,7 @@ func HandleWebhookEvents(rh *receiverHandlers) {
 	l := log.Logger{}
 
 	for {
-		t := time.NewTimer(BATCHINTERVAL)
+		t := time.NewTimer(BatchInterval)
 		select {
 		case <-rh.BatchSizeChan:
 			l.Log(log.INFO, "cache batch size threshold crossed")
@@ -120,4 +141,22 @@ func HandleWebhookEvents(rh *receiverHandlers) {
 			}
 		}
 	}
+}
+
+// -- for test ------
+// HookHandler webhook handler function
+func (rh *receiverHandlers) HooksHandler(w http.ResponseWriter, r *http.Request) {
+	l := log.Logger{}
+
+	logs := []model.Log{}
+
+	//decode body
+	err := json.NewDecoder(r.Body).Decode(&logs)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	l.Log(log.INFO, "hooks received: %v \n", logs)
+	w.WriteHeader(http.StatusAccepted)
 }

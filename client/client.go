@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"os"
 	"time"
 
 	log "github.com/arpsch/go-webhook_rxr/logger"
@@ -17,44 +18,62 @@ const (
 	RetryCount    = 3
 )
 
+var (
+	endpoint string
+)
+
 type Client struct {
 	Endpoint string
+}
+
+func init() {
+	endpoint = os.Getenv("endpoint")
+	// set default value is not set through ENV
+	if endpoint == "" {
+		endpoint = "http://127.0.0.1:9999/logs"
+	}
 }
 
 // NewReceiver constructor for webhook recever type
 func NewClient() *Client {
 	return &Client{
 		// TODO: to be read from environment
-		Endpoint: "http://requestbin.net",
+		Endpoint: endpoint,
 	}
 }
 
 // HandleHooks the method to handle business logic of the hook
-func (c *Client) HandleHook(ctx context.Context, logs []model.Log) error {
+func (c *Client) HandleHook(ctx context.Context, logs []model.Log) (int, time.Duration, error) {
 	json_data, err := json.Marshal(logs)
 	if err != nil {
-		return err
+		return 0, 0, err
 	}
 
-	_, err = http.Post(c.Endpoint, "application/json", bytes.NewBuffer(json_data))
+	s := time.Now()
+	resp, err := http.Post(c.Endpoint, "application/json", bytes.NewBuffer(json_data))
 	if err != nil {
-		return err
+		return 0, 0, err
+	}
+	e := time.Now()
+
+	if resp.StatusCode != http.StatusAccepted {
+		return 0, 0, errors.New("request failed")
 	}
 
-	return nil
+	return resp.StatusCode, e.Sub(s), nil
 }
 
 // RetryTimeout calls the client endpoint with retry constraint
 // Attempt 3 times at an interval of 2 seconds each
 func RetryTimeout(logs []model.Log,
-	check func(context.Context, []model.Log) error) error {
+	check func(context.Context, []model.Log) (int, time.Duration, error)) error {
 	//set up context for upstream request
 	ctx := context.Background()
 	l := log.Logger{}
 
 	for i := 0; i < RetryCount; i++ {
-		if err := check(ctx, logs); err == nil {
-			l.Log(log.INFO, "finished successfully in attempt: %d\n", i)
+		if sc, d, err := check(ctx, logs); err == nil {
+			l.Log(log.INFO, "Posted batch of size: %d in %v seconds with status: %d \n", len(logs), d, sc)
 			return nil
 		}
 
@@ -74,5 +93,5 @@ func RetryTimeout(logs []model.Log,
 			l.Log(log.WARN, "retry again -  count %d\n", i)
 		}
 	}
-	return nil
+	return errors.New("failed to update hooks")
 }
