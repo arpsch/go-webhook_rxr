@@ -4,7 +4,7 @@ A simple golang based webhook receiver project.
 Environmental Variables:
 BATACH_INTERVAL in seconds, defaults to 30s if not supplied.
 BATCH_SIZE in number, defaults to 3 if not supplied.
-ENPOIND in string targeting the upstream server, defaults to internal test endpoint if not supplied.
+ENDPOINT in string targeting the upstream server, defaults to internal test endpoint if not supplied.
 
 How to run:
 
