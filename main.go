@@ -22,13 +22,17 @@ func setupServer() (*httprouter.Router, error) {
 	imc := imemc.NewLogCache()
 
 	// create client object
-	client := client.NewClient()
+	cl := client.NewClient()
 
 	// set up api handlers for webhook receiver
-	whHandler := api_http.NewReceiverHandlers(imc, client)
+	whHandler := api_http.NewReceiverHandlers(imc, cl)
 
-	// set up the go routine to handle cacche evictions
-	go api_http.HandleWebhookEvents(whHandler)
+	// set up the goroutine to handle cache eviction on batch
+	// interval timout
+	go api_http.HandleBatchIntervalTimeout(whHandler)
+
+	// set up the cache controller goroutine
+	go imemc.CacheController(imc, cl, client.InvokePostEnpoint)
 
 	// set up the routes
 	routes := whHandler.SetupRoutes()

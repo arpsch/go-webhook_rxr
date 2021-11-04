@@ -43,7 +43,7 @@ func NewClient() *Client {
 }
 
 // HandleHooks the method to handle business logic of the hook
-func (c *Client) HandleHook(ctx context.Context, logs []model.Log) (int, time.Duration, error) {
+func (c *Client) PostHookEndpoint(ctx context.Context, logs []model.Log) (int, time.Duration, error) {
 	json_data, err := json.Marshal(logs)
 	if err != nil {
 		return 0, 0, err
@@ -65,25 +65,28 @@ func (c *Client) HandleHook(ctx context.Context, logs []model.Log) (int, time.Du
 
 // RetryTimeout calls the client endpoint with retry constraint
 // Attempt 3 times at an interval of 2 seconds each
-func RetryTimeout(logs []model.Log,
-	check func(context.Context, []model.Log) (int, time.Duration, error)) error {
-	//set up context for upstream request
-	ctx := context.Background()
+func InvokePostEnpoint(logs []model.Log, c *Client) error {
 	l := log.Logger{}
 
+	// if logs are empty, do nothing
+	if len(logs) == 0 {
+		l.Log(log.WARN, "empty cache, nothing to do")
+		return errors.New("empty cache, nothing to do")
+	}
+
+	//set up context with time out for upstream request
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
 	for i := 0; i < RetryCount; i++ {
-		if sc, d, err := check(ctx, logs); err == nil {
+		if sc, d, err := c.PostHookEndpoint(ctx, logs); err == nil {
 			l.Log(log.INFO, "Posted batch of size: %d in %v seconds with status: %d \n", len(logs), d, sc)
 			return nil
 		}
 
-		if ctx.Err() != nil {
-			l.Log(log.ERROR, "time expired 1 : %v\n", ctx.Err())
-			return errors.New(ctx.Err().Error())
-		}
-
 		l.Log(log.WARN, "wait %s before trying again\n", RetryInterval)
 		t := time.NewTimer(RetryInterval)
+
 		select {
 		case <-ctx.Done():
 			l.Log(log.WARN, "time expired 2 : %v\n", ctx.Err())
