@@ -77,7 +77,7 @@ func CacheController(c *Cache, cl *client.Client, fn func([]model.Log, *client.C
 		//if len(c.Logs) > 4 || l == (model.Log{}) {
 		if len(c.Logs) >= BatchSize || l.Title == "evict" {
 			// call the eviction handler
-			fn(c.Logs, cl)
+			go fn(c.Logs, cl)
 			//reset the logs
 			c.Logs = nil
 		}
