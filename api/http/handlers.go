@@ -35,9 +35,6 @@ func init() {
 type receiverHandlers struct {
 	cache  *imemc.Cache
 	client *client.Client
-
-	// signal for go routine
-	BatchSizeChan chan struct{}
 }
 
 // NewReceiverHandlers constructor for Receiver
@@ -45,8 +42,6 @@ func NewReceiverHandlers(cache *imemc.Cache, client *client.Client) *receiverHan
 	return &receiverHandlers{
 		cache:  cache,
 		client: client,
-
-		BatchSizeChan: make(chan struct{}),
 	}
 }
 
